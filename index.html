@@ -102,7 +102,7 @@ function renderShell(session) {
     </header>
     <main>
       <div class="tabs">
-        ${["portfolio","opportunities","forecasts","shortseller"].map(t =>
+        ${["portfolio","opportunities","forecasts","shortseller","speculative"].map(t =>
           `<button data-tab="${t}" class="${state.tab===t?'on':''}">${t[0].toUpperCase()+t.slice(1)}</button>`).join("")}
       </div>
       <div id="view"></div>
@@ -123,6 +123,7 @@ async function renderTab() {
     if (state.tab === "opportunities") return renderOpportunities();
     if (state.tab === "forecasts") return renderForecasts();
     if (state.tab === "shortseller") return renderShortseller();
+    if (state.tab === "speculative") return renderSpeculative();
   } catch (e) {
     view().innerHTML = empty(`Error: ${esc(e.message)}`);
   }
@@ -193,6 +194,29 @@ async function renderShortseller() {
     <th>Ticker</th><th>Verdict</th><th>Date</th></tr></thead><tbody>
     ${data.map(r=>`<tr><td class="mono" data-label="Ticker">${esc(r.ticker)}</td><td data-label="Verdict">${esc(r.verdict)}</td><td class="muted" data-label="Date">${esc(r.date)}</td></tr>`).join("")}
     </tbody></table></div></div>`;
+}
+
+async function renderSpeculative() {
+  const { data, error } = await sb.from("spec_candidates").select("*").order("date", { ascending: false });
+  if (error) throw error;
+  const rows = dedupeByTicker(data || []);
+  if (!rows.length) return view().innerHTML = empty("No speculative ideas yet — weekly only, and only when a sourced catalyst is found.");
+  view().innerHTML = `<div class="card">
+    <h2>Speculative / high-risk — small bets only</h2>
+    <div class="empty" style="padding:0 0 10px">Very cheap, beaten-down names with big upside <b>if</b> a specific catalyst plays out — and real risk of a total loss. Each has a sourced catalyst (no hope-bets). Lottery-ticket sizing, never core positions.</div>
+    ${rows.map(r => {
+      const cat = (r.catalyst && r.catalyst.claim) ? r.catalyst.claim : "";
+      return `<div class="card" style="margin:10px 0">
+        <div><span class="mono" style="font-weight:700">${esc(r.ticker)}</span>
+          <span class="pill sell" style="margin-left:8px">HIGH RISK</span>
+          <span class="muted" style="margin-left:8px">max ${esc(r.suggested_max_position_pct ?? "≤2")}% · conviction ${esc(r.conviction || "low")}</span></div>
+        <div style="margin-top:6px"><b>Catalyst:</b> ${esc(cat)}</div>
+        ${r.upside ? `<div><b>If it works:</b> ${esc(r.upside)}</div>` : ""}
+        <div><b>If it doesn't:</b> ${esc(r.downside || "can lose the whole position")}</div>
+        <div class="muted" style="margin-top:4px;font-size:11px">${esc(r.date)}</div>
+      </div>`;
+    }).join("")}
+  </div>`;
 }
 
 function dedupeByTicker(rows) { const seen = new Set(); return rows.filter(r => !seen.has(r.ticker) && seen.add(r.ticker)); }
