@@ -50,6 +50,8 @@
   .kpi .l{font-family:var(--font-mono);font-size:var(--fs-eyebrow);color:var(--text-subtle);
     text-transform:uppercase;letter-spacing:.12em}
   .empty{color:var(--text-muted);padding:18px 4px}
+  .legend{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);
+    font-family:var(--font-mono);font-size:var(--fs-eyebrow);color:var(--text-subtle);line-height:1.7}
   .login{max-width:380px;margin:13vh auto;text-align:center;padding:0 20px}
   .login .mark{height:60px;width:auto;margin-bottom:10px}
   .login h1{font-family:var(--font-display);font-weight:600;letter-spacing:var(--tracking-display);
@@ -88,6 +90,32 @@ const app = document.getElementById("app");
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
 const CALL_BADGE = { buy:"iv-badge-success", add:"iv-badge-success", sell:"iv-badge-danger", trim:"iv-badge-danger", hold:"" };
 const callPill = c => `<span class="iv-badge ${CALL_BADGE[c] || ""}">${esc(c)}</span>`;
+
+/* plain-English helpers */
+const fmtNum = x => (x == null || x === "") ? "—" : (Math.abs(x) >= 1e9 ? (x/1e9).toFixed(1)+"B" : Math.abs(x) >= 1e6 ? (x/1e6).toFixed(1)+"M" : (+x).toLocaleString(undefined,{maximumFractionDigits:2}));
+const pctSigned = x => x == null ? "—" : (x >= 0 ? "+" : "") + (x*100).toFixed(1) + "%";
+const tickerCell = r => `<span class="mono" style="font-weight:700">${esc(r.ticker)}</span>${r.name ? `<span class="muted" style="margin-left:6px">${esc(r.name)}</span>` : ""}`;
+const priceCell = r => r.price == null ? '<span class="muted">—</span>' : esc(fmtNum(r.price));
+const trendCell = r => r.ret_6mo == null ? '<span class="muted">—</span>' : `<span class="iv-delta ${r.ret_6mo >= 0 ? "up" : "down"}">${Math.abs(r.ret_6mo*100).toFixed(1)}%</span>`;
+const SIG_LABEL = { pe:"P/E", ev_ebitda:"EV/EBITDA", ps:"P/S", revenue_growth:"Rev growth", fcf:"Free cash flow",
+  gross_margin:"Gross margin", operating_margin:"Op margin", roe:"ROE", net_debt_ebitda:"Net debt/EBITDA",
+  current_ratio:"Current ratio", dma50:"vs 50-day", dma200:"vs 200-day", ret_6mo:"6-mo return", sector:"Sector", market_cap:"Market cap" };
+const PCT_SIG = new Set(["revenue_growth","gross_margin","operating_margin","roe","ret_6mo"]);
+function fmtSig(s) {
+  const lbl = SIG_LABEL[s.metric] || s.metric;
+  if (s.value == null) return lbl;
+  if (PCT_SIG.has(s.metric)) return `${lbl} ${(s.value*100).toFixed(0)}%`;
+  if (s.metric === "fcf" || s.metric === "market_cap") return `${lbl} $${fmtNum(s.value)}`;
+  if (typeof s.value === "number") return `${lbl} ${(+s.value).toLocaleString(undefined,{maximumFractionDigits:2})}`;
+  return `${lbl} ${s.value}`;
+}
+const LEGEND = {
+  portfolio: "Call — Buy/Add: consider buying · Trim/Sell: consider reducing or exiting · Hold: no change. Conf: how much data backed the view. ▲/▼: 6-month price trend.",
+  opportunities: "Score 0–100: fit to your rules (65+ = buy bar). Signals — P/E, EV/EBITDA, P/S: valuation (lower = cheaper); Rev growth, margins, ROE: quality; 6-mo return: momentum. ▲/▼: 6-month trend.",
+  forecasts: "Return: the call's price move since it was made. Bench: the benchmark's move. Alpha: Return − Bench (how much better/worse than the market). Hit = right, Miss = wrong.",
+  shortseller: "Verdict — clean: no red flags found · watch: caution · red-flag: serious concern. Evidence-based; runs weekly.",
+  speculative: "HIGH RISK: can lose the whole position. Conviction is low/medium only. Max %: suggested cap of your portfolio. Each idea carries a concrete, sourced catalyst. 52-wk: change over the last year.",
+};
 
 let state = { tab: "portfolio", v: {}, cache: {} };   // v[tab] = {f:{filterKey:val}, sort:{k,dir}}
 
@@ -178,7 +206,7 @@ function filterBar(tab, rows, filters, cols) {
   }).join("")}</div>`;
 }
 
-function dataTable(tab, { title, rows, columns, filters = [], defaultSort = null, prefix = "", empty: emptyMsg }) {
+function dataTable(tab, { title, rows, columns, filters = [], defaultSort = null, prefix = "", legend = "", empty: emptyMsg }) {
   const st = vstate(tab, defaultSort);
   const shown = applyView(rows, st, columns);
   const head = columns.map(c => c.sortable
@@ -190,7 +218,7 @@ function dataTable(tab, { title, rows, columns, filters = [], defaultSort = null
   const inner = !rows.length
     ? `<div class="empty">${esc(emptyMsg || "No data yet.")}</div>`
     : `${filterBar(tab, rows, filters, columns)}<div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>${shown.length ? "" : '<div class="empty">No rows match the filter.</div>'}`;
-  view().innerHTML = `${prefix}<div class="card"><h2>${esc(title)}</h2>${inner}</div>`;
+  view().innerHTML = `${prefix}<div class="card"><h2>${esc(title)}</h2>${inner}${legend && rows.length ? `<div class="legend">${legend}</div>` : ""}</div>`;
   view().querySelectorAll("select.flt").forEach(s => s.onchange = () => { st.f[s.dataset.k] = s.value; rerender(); });
   view().querySelectorAll("th[data-k]").forEach(th => th.onclick = () => {
     const k = th.dataset.k; st.sort = { k, dir: st.sort && st.sort.k===k ? -st.sort.dir : -1 }; rerender();
@@ -206,13 +234,15 @@ async function renderPortfolio() {
   dataTable("portfolio", {
     title: "Portfolio — latest calls", rows, empty: "No portfolio calls yet — first pipeline run pending.",
     columns: [
-      { k: "ticker", label: "Ticker", cls: "mono", sortable: true },
+      { k: "ticker", label: "Ticker", sortable: true, render: tickerCell },
       { k: "call", label: "Call", sortable: true, render: r => callPill(r.call) },
-      { k: "rationale", label: "Rationale" },
+      { k: "price", label: "Price", sortable: true, get: r => r.price ?? -1, render: priceCell },
+      { k: "ret_6mo", label: "6-mo", sortable: true, get: r => r.ret_6mo ?? -999, render: trendCell },
+      { k: "rationale", label: "Why", render: r => esc(r.rationale ?? "—") },
       { k: "confidence_pct", label: "Conf", sortable: true, get: r => r.confidence_pct ?? -1, render: r => (r.confidence_pct ?? "—") + "%" },
       { k: "date", label: "Date", cls: "muted", sortable: true },
     ],
-    filters: [{ k: "call", label: "Call" }], defaultSort: { k: "date", dir: -1 },
+    filters: [{ k: "call", label: "Call" }], defaultSort: { k: "date", dir: -1 }, legend: LEGEND.portfolio,
   });
 }
 
@@ -224,12 +254,14 @@ async function renderOpportunities() {
   dataTable("opportunities", {
     title: "Opportunities — latest scores", rows, empty: "No scores yet — first pipeline run pending.",
     columns: [
-      { k: "ticker", label: "Ticker", cls: "mono", sortable: true },
+      { k: "ticker", label: "Ticker", sortable: true, render: tickerCell },
       { k: "score", label: "Score", sortable: true, get: r => r.score ?? -1, render: r => `<b>${r.score ?? "n/a"}</b>` },
+      { k: "price", label: "Price", sortable: true, get: r => r.price ?? -1, render: priceCell },
+      { k: "ret_6mo", label: "6-mo", sortable: true, get: r => r.ret_6mo ?? -999, render: trendCell },
       { k: "date", label: "Date", cls: "muted", sortable: true },
-      { k: "signals", label: "Top signals", cls: "muted", render: r => esc((r.signals || []).slice(0, 3).map(s => s.metric + "=" + s.value).join(", ")) },
+      { k: "signals", label: "Top signals", cls: "muted", render: r => (r.signals || []).slice(0, 4).map(s => esc(fmtSig(s))).join(" · ") },
     ],
-    defaultSort: { k: "score", dir: -1 },
+    defaultSort: { k: "score", dir: -1 }, legend: LEGEND.opportunities,
   });
 }
 
@@ -258,7 +290,7 @@ async function renderForecasts() {
       { k: "alpha_pct", label: "Alpha", sortable: true, get: r => r.alpha_pct ?? -999, render: r => `<b>${pct(r.alpha_pct)}</b>` },
       { k: "eval_date", label: "Eval", cls: "muted", sortable: true },
     ],
-    filters: [{ k: "outcome", label: "Outcome" }], defaultSort: { k: "eval_date", dir: -1 },
+    filters: [{ k: "outcome", label: "Outcome" }], defaultSort: { k: "eval_date", dir: -1 }, legend: LEGEND.forecasts,
   });
 }
 
@@ -274,7 +306,7 @@ async function renderShortseller() {
       { k: "verdict", label: "Verdict", sortable: true },
       { k: "date", label: "Date", cls: "muted", sortable: true },
     ],
-    filters: [{ k: "verdict", label: "Verdict" }], defaultSort: { k: "date", dir: -1 },
+    filters: [{ k: "verdict", label: "Verdict" }], defaultSort: { k: "date", dir: -1 }, legend: LEGEND.shortseller,
   });
 }
 
@@ -297,9 +329,10 @@ async function renderSpeculative() {
   const cards = shown.length ? shown.map(r => {
     const cat = (r.catalyst && r.catalyst.claim) ? r.catalyst.claim : "";
     return `<div class="card" style="margin:10px 0">
-      <div><span class="mono" style="font-weight:700">${esc(r.ticker)}</span>
+      <div>${tickerCell(r)}
         <span class="iv-badge iv-badge-danger" style="margin-left:8px">HIGH RISK</span>
         <span class="muted" style="margin-left:8px">max ${esc(r.suggested_max_position_pct ?? "≤2")}% · conviction ${esc(r.conviction || "low")}</span></div>
+      <div class="muted" style="margin-top:4px;font-size:12px">Price ${priceCell(r)} · 52-wk ${pctSigned(r.chg_52w)}</div>
       <div style="margin-top:6px"><b>Catalyst:</b> ${esc(cat)}</div>
       ${r.upside ? `<div><b>If it works:</b> ${esc(r.upside)}</div>` : ""}
       <div><b>If it doesn't:</b> ${esc(r.downside || "can lose the whole position")}</div>
@@ -308,7 +341,7 @@ async function renderSpeculative() {
   }).join("") : '<div class="empty">No rows match the filter.</div>';
   view().innerHTML = `<div class="card"><h2>Speculative / high-risk — small bets only</h2>
     <div class="empty" style="padding:0 0 10px">Very cheap, beaten-down names with big upside <b>if</b> a specific catalyst plays out — and real risk of a total loss. Each has a sourced catalyst (no hope-bets). Lottery-ticket sizing, never core positions.</div>
-    ${bar}${cards}</div>`;
+    ${bar}${cards}<div class="legend">${LEGEND.speculative}</div></div>`;
   view().querySelector(".sflt").onchange = e => { st.f.conviction = e.target.value; rerender(); };
   view().querySelector(".ssort").onchange = e => { st.sort = { k: e.target.value, dir: e.target.value === "chg_52w" ? 1 : -1 }; rerender(); };
 }
