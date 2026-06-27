@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Investment Agent — Dashboard</title>
+<style>
+  :root{--bg:#0b0f14;--panel:#131a23;--border:#222c39;--txt:#e7ecf3;--muted:#8b94a6;
+        --good:#2fd6a6;--bad:#ff5763;--accent:#3d8bff;--mono:"SF Mono",ui-monospace,Menlo,monospace}
+  *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--txt);
+    font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border)}
+  header h1{font-size:15px;margin:0;font-weight:700}
+  header .sp{flex:1}
+  button{background:var(--accent);border:0;color:#fff;border-radius:8px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer}
+  button.ghost{background:var(--panel);border:1px solid var(--border)}
+  main{padding:18px 20px;max-width:1100px;margin:0 auto}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+  .tabs button{background:var(--panel);border:1px solid var(--border);color:var(--muted)}
+  .tabs button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:14px}
+  .card h2{font-size:13px;margin:0 0 10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;padding:6px 8px;border-bottom:1px solid var(--border)}
+  td{padding:7px 8px;border-bottom:1px solid #161d28;font-variant-numeric:tabular-nums}
+  th[data-k]{cursor:pointer} th[data-k]:hover{color:var(--txt)}
+  .mono{font-family:var(--mono)} .muted{color:var(--muted)}
+  .pill{display:inline-block;padding:1px 8px;border-radius:20px;font-size:10.5px;font-weight:600}
+  .buy,.add{background:rgba(47,214,166,.15);color:var(--good)}
+  .sell,.trim{background:rgba(255,87,99,.15);color:var(--bad)}
+  .hold{background:#222c3b;color:var(--muted)}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+  .kpi .v{font-size:22px;font-weight:700} .kpi .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .empty{color:var(--muted);padding:18px 4px}
+  .login{max-width:360px;margin:12vh auto;text-align:center}
+  .login input{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--txt);margin:10px 0}
+  .foot{color:var(--muted);font-size:11px;margin-top:20px}
+  .err{color:var(--bad);font-size:12px}
+  /* ---- responsive: phones get stacked label/value cards instead of wide tables ---- */
+  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  @media (max-width:640px){
+    header{padding:10px 14px;gap:8px}
+    header h1{font-size:14px}
+    header .muted{display:none}                 /* hide email to save width on phone */
+    main{padding:14px 12px}
+    .tabs button{flex:1 1 auto}                  /* full-width tap targets */
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    table,thead,tbody,tr,td{display:block;width:100%}
+    thead{display:none}                          /* labels come from data-label instead */
+    tr{border:1px solid var(--border);border-radius:10px;margin-bottom:10px;padding:4px 12px}
+    td{border:0;padding:6px 0;display:flex;justify-content:space-between;align-items:baseline;gap:12px;text-align:right}
+    td::before{content:attr(data-label);color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px;text-align:left;flex:0 0 38%}
+    td:first-child{font-weight:700;border-bottom:1px solid var(--border);margin-bottom:2px;padding-top:8px}
+  }
+  @media (min-width:1280px){ main{max-width:1240px} }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* Public, by design: URL + anon key are safe in client code — security is Supabase Auth + RLS. */
+const SUPABASE_URL = "https://akevbpevovkjziddzxch.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrZXZicGV2b3ZranppZGR6eGNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0OTExMDcsImV4cCI6MjA5ODA2NzEwN30.PI5vACZNajlv0llm1ODnyWmpJlaZwwhg1KbAQu5b4sU";
+const DISCLAIMER = "Research, not financial advice. Evidence-based; unsourced items excluded.";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const app = document.getElementById("app");
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
+const callPill = c => `<span class="pill ${esc(c)}">${esc(c)}</span>`;
+
+let state = { tab: "portfolio", sort: { k: "score", dir: -1 } };
+
+async function boot() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return renderLogin();
+  renderShell(session);
+}
+
+function renderLogin(msg) {
+  app.innerHTML = `<div class="login">
+    <h1>Investment Agent</h1>
+    <p class="muted">Sign in to view your dashboard.</p>
+    <button id="gh" style="width:100%">Continue with GitHub</button>
+    <div class="muted" style="margin:12px 0;font-size:12px">— or —</div>
+    <input id="email" type="email" placeholder="your email" autocomplete="email"/>
+    <button id="send" class="ghost" style="width:100%">Send magic link</button>
+    <div id="msg" class="muted" style="margin-top:10px">${msg || ""}</div>
+  </div>`;
+  document.getElementById("gh").onclick = async () => {
+    const { error } = await sb.auth.signInWithOAuth({ provider: "github",
+      options: { redirectTo: location.href.split("#")[0] } });
+    if (error) document.getElementById("msg").innerHTML = `<span class="err">${esc(error.message)}</span>`;
+  };
+  document.getElementById("send").onclick = async () => {
+    const email = document.getElementById("email").value.trim();
+    if (!email) return;
+    document.getElementById("msg").textContent = "Sending…";
+    const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.href.split("#")[0] } });
+    document.getElementById("msg").innerHTML = error
+      ? `<span class="err">${esc(error.message)}</span>`
+      : "Check your email for the sign-in link.";
+  };
+}
+
+function renderShell(session) {
+  app.innerHTML = `
+    <header>
+      <h1>📈 Investment Agent</h1><span class="sp"></span>
+      <span class="muted" style="font-size:12px">${esc(session.user.email)}</span>
+      <button class="ghost" id="logout">Sign out</button>
+    </header>
+    <main>
+      <div class="tabs">
+        ${["portfolio","opportunities","forecasts","shortseller"].map(t =>
+          `<button data-tab="${t}" class="${state.tab===t?'on':''}">${t[0].toUpperCase()+t.slice(1)}</button>`).join("")}
+      </div>
+      <div id="view"></div>
+      <div class="foot">${DISCLAIMER}</div>
+    </main>`;
+  document.getElementById("logout").onclick = async () => { await sb.auth.signOut(); renderLogin(); };
+  document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { state.tab = b.dataset.tab; renderShell(session); });
+  renderTab();
+}
+
+const view = () => document.getElementById("view");
+const empty = m => `<div class="card"><div class="empty">${m}</div></div>`;
+
+async function renderTab() {
+  view().innerHTML = `<div class="card"><div class="empty">Loading…</div></div>`;
+  try {
+    if (state.tab === "portfolio") return renderPortfolio();
+    if (state.tab === "opportunities") return renderOpportunities();
+    if (state.tab === "forecasts") return renderForecasts();
+    if (state.tab === "shortseller") return renderShortseller();
+  } catch (e) {
+    view().innerHTML = empty(`Error: ${esc(e.message)}`);
+  }
+}
+
+async function renderPortfolio() {
+  const { data, error } = await sb.from("recommendations").select("*")
+    .eq("kind", "holding").order("date", { ascending: false });
+  if (error) throw error;
+  const latest = dedupeByTicker(data || []);
+  if (!latest.length) return view().innerHTML = empty("No portfolio calls yet — first pipeline run pending.");
+  view().innerHTML = `<div class="card"><h2>Portfolio — latest calls</h2><div class="table-wrap"><table><thead><tr>
+    <th>Ticker</th><th>Call</th><th>Rationale</th><th>Conf</th><th>Date</th></tr></thead><tbody>
+    ${latest.map(r => `<tr><td class="mono" data-label="Ticker">${esc(r.ticker)}</td><td data-label="Call">${callPill(r.call)}</td>
+      <td data-label="Rationale">${esc(r.rationale)}</td><td data-label="Conf">${r.confidence_pct ?? "—"}%</td><td class="muted" data-label="Date">${esc(r.date)}</td></tr>`).join("")}
+    </tbody></table></div></div>`;
+}
+
+async function renderOpportunities() {
+  const { data, error } = await sb.from("scores").select("*").order("date", { ascending: false });
+  if (error) throw error;
+  let rows = dedupeByTicker(data || []);
+  if (!rows.length) return view().innerHTML = empty("No scores yet — first pipeline run pending.");
+  rows.sort((a, b) => state.sort.dir * ((a[state.sort.k] ?? -1) - (b[state.sort.k] ?? -1)));
+  const hdr = (k, l) => `<th data-k="${k}">${l}${state.sort.k===k?(state.sort.dir<0?" ▼":" ▲"):""}</th>`;
+  view().innerHTML = `<div class="card"><h2>Opportunities — latest scores</h2><div class="table-wrap"><table><thead><tr>
+    <th>Ticker</th>${hdr("score","Score")}${hdr("date","Date")}<th>Top signals</th></tr></thead><tbody>
+    ${rows.map(r => `<tr><td class="mono" data-label="Ticker">${esc(r.ticker)}</td>
+      <td data-label="Score"><b>${r.score ?? "n/a"}</b></td><td class="muted" data-label="Date">${esc(r.date)}</td>
+      <td class="muted" data-label="Signals">${(r.signals||[]).slice(0,3).map(s=>esc(s.metric)+"="+esc(s.value)).join(", ")}</td></tr>`).join("")}
+    </tbody></table></div></div>`;
+  document.querySelectorAll("th[data-k]").forEach(th => th.onclick = () => {
+    const k = th.dataset.k; state.sort = { k, dir: state.sort.k===k ? -state.sort.dir : -1 }; renderOpportunities();
+  });
+}
+
+async function renderForecasts() {
+  const [{ data: outs }, { data: fcs }] = await Promise.all([
+    sb.from("forecast_outcomes").select("*"),
+    sb.from("forecasts").select("*"),
+  ]);
+  const n = (outs||[]).length;
+  const hits = (outs||[]).filter(o => o.outcome === "hit").length;
+  const avgAlpha = n ? (outs.reduce((a,o)=>a+(o.alpha_pct||0),0)/n) : null;
+  const open = (fcs||[]).filter(f => f.status === "open").length;
+  view().innerHTML = `
+    <div class="kpis" style="margin-bottom:14px">
+      <div class="kpi"><div class="l">Graded</div><div class="v">${n}</div></div>
+      <div class="kpi"><div class="l">Hit-rate</div><div class="v">${n?Math.round(hits/n*100)+"%":"—"}</div></div>
+      <div class="kpi"><div class="l">Avg alpha</div><div class="v">${avgAlpha==null?"—":(avgAlpha*100).toFixed(1)+"%"}</div></div>
+      <div class="kpi"><div class="l">Open</div><div class="v">${open}</div></div>
+    </div>
+    <div class="card"><h2>Forecast ledger — graded</h2>${
+      n ? `<div class="table-wrap"><table><thead><tr><th>Forecast</th><th>Outcome</th><th>Return</th><th>Bench</th><th>Alpha</th><th>Eval</th></tr></thead><tbody>
+        ${outs.map(o=>`<tr><td class="mono" data-label="Forecast">${esc(o.forecast_id)}</td>
+          <td data-label="Outcome">${callPill(o.outcome==="hit"?"add":o.outcome==="miss"?"sell":"hold")}${esc(o.outcome)}</td>
+          <td data-label="Return">${pct(o.return_pct)}</td><td class="muted" data-label="Bench">${esc(o.benchmark)} ${pct(o.benchmark_return_pct)}</td>
+          <td data-label="Alpha"><b>${pct(o.alpha_pct)}</b></td><td class="muted" data-label="Eval">${esc(o.eval_date)}</td></tr>`).join("")}
+        </tbody></table></div>` : `<div class="empty">No forecasts graded yet — they grade once their horizon elapses.</div>`
+    }</div>`;
+}
+
+async function renderShortseller() {
+  const { data, error } = await sb.from("shortseller_reports").select("*").order("date", { ascending: false });
+  if (error) throw error;
+  if (!(data||[]).length) return view().innerHTML = empty("No short-seller reports yet.");
+  view().innerHTML = `<div class="card"><h2>Short-seller checks</h2><div class="table-wrap"><table><thead><tr>
+    <th>Ticker</th><th>Verdict</th><th>Date</th></tr></thead><tbody>
+    ${data.map(r=>`<tr><td class="mono" data-label="Ticker">${esc(r.ticker)}</td><td data-label="Verdict">${esc(r.verdict)}</td><td class="muted" data-label="Date">${esc(r.date)}</td></tr>`).join("")}
+    </tbody></table></div></div>`;
+}
+
+function dedupeByTicker(rows) { const seen = new Set(); return rows.filter(r => !seen.has(r.ticker) && seen.add(r.ticker)); }
+function pct(x) { return x == null ? "—" : (x*100).toFixed(1) + "%"; }
+
+sb.auth.onAuthStateChange((_e, session) => { session ? renderShell(session) : renderLogin(); });
+boot();
+</script>
+</body>
+</html>
