@@ -29,11 +29,16 @@
   .card h2{font-family:var(--font-mono);text-transform:uppercase;letter-spacing:var(--tracking-eyebrow);
     font-size:var(--fs-eyebrow);color:var(--c-blue);margin:0 0 14px;display:inline-flex;align-items:center;gap:8px}
   .card h2::before{content:"";width:28px;height:2px;border-radius:2px;background:var(--grad-spectrum)}
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .filters select{font-family:var(--font-body);font-size:var(--fs-sm);color:var(--text-strong);
+    background:var(--surface-card);border:1px solid var(--border-strong);border-radius:var(--r-pill);
+    padding:.4rem .9rem;cursor:pointer}
+  .filters select:focus{outline:none;border-color:var(--c-blue);box-shadow:0 0 0 3px rgba(71,123,209,.18)}
   table{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
   th{text-align:left;font-family:var(--font-mono);color:var(--text-subtle);font-size:var(--fs-eyebrow);
     text-transform:uppercase;letter-spacing:.08em;padding:8px;border-bottom:1px solid var(--border)}
   td{padding:9px 8px;border-bottom:1px solid var(--border);color:var(--text);font-variant-numeric:tabular-nums}
-  th[data-k]{cursor:pointer} th[data-k]:hover{color:var(--text-strong)}
+  th[data-k]{cursor:pointer;user-select:none} th[data-k]:hover{color:var(--text-strong)}
   .mono{font-family:var(--font-mono);color:var(--text-strong)}
   .muted{color:var(--text-muted)}
   .iv-badge-danger{background:rgba(226,82,71,.14);color:var(--danger)}
@@ -56,6 +61,7 @@
     .appbar{padding:12px 14px} .appbar .who{display:none}
     main{padding:16px 12px}
     .tabs button{flex:1 1 auto}
+    .filters select{flex:1 1 auto}
     .kpis{grid-template-columns:repeat(2,1fr)}
     table,thead,tbody,tr,td{display:block;width:100%}
     thead{display:none}
@@ -83,7 +89,7 @@ const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;
 const CALL_BADGE = { buy:"iv-badge-success", add:"iv-badge-success", sell:"iv-badge-danger", trim:"iv-badge-danger", hold:"" };
 const callPill = c => `<span class="iv-badge ${CALL_BADGE[c] || ""}">${esc(c)}</span>`;
 
-let state = { tab: "portfolio", sort: { k: "score", dir: -1 } };
+let state = { tab: "portfolio", v: {}, cache: {} };   // v[tab] = {f:{filterKey:val}, sort:{k,dir}}
 
 async function boot() {
   const { data: { session } } = await sb.auth.getSession();
@@ -127,110 +133,184 @@ function renderShell(session) {
   renderTab();
 }
 
+/* ---------- view + generic filter/sort table layer ---------- */
 const view = () => document.getElementById("view");
 const empty = m => `<div class="card"><div class="empty">${m}</div></div>`;
+const RENDER = { portfolio: renderPortfolio, opportunities: renderOpportunities,
+                 forecasts: renderForecasts, shortseller: renderShortseller, speculative: renderSpeculative };
+const rerender = () => RENDER[state.tab]();
 
 async function renderTab() {
   view().innerHTML = `<div class="card"><div class="empty">Loading…</div></div>`;
-  try {
-    if (state.tab === "portfolio") return renderPortfolio();
-    if (state.tab === "opportunities") return renderOpportunities();
-    if (state.tab === "forecasts") return renderForecasts();
-    if (state.tab === "shortseller") return renderShortseller();
-    if (state.tab === "speculative") return renderSpeculative();
-  } catch (e) {
-    view().innerHTML = empty(`Error: ${esc(e.message)}`);
-  }
+  try { await RENDER[state.tab](); }
+  catch (e) { view().innerHTML = empty(`Error: ${esc(e.message)}`); }
 }
 
+async function load(tab, fetcher) {            // fetch once per session, then filter/sort client-side
+  if (!state.cache[tab]) state.cache[tab] = await fetcher();
+  return state.cache[tab];
+}
+function vstate(tab, dflt) { return (state.v[tab] ||= { f: {}, sort: dflt || null }); }
+function colGet(cols, k, r) { const c = cols.find(c => c.k === k); return c && c.get ? c.get(r) : r[k]; }
+
+function applyView(rows, st, cols) {
+  let out = rows.filter(r => Object.entries(st.f).every(([k, val]) =>
+    !val || String(colGet(cols, k, r) ?? "") === val));
+  if (st.sort) {
+    const { k, dir } = st.sort;
+    out = out.slice().sort((a, b) => {
+      const x = colGet(cols, k, a), y = colGet(cols, k, b);
+      if (typeof x === "number" && typeof y === "number") return dir * (x - y);
+      return dir * String(x ?? "").localeCompare(String(y ?? ""));
+    });
+  }
+  return out;
+}
+
+function filterBar(tab, rows, filters, cols) {
+  if (!filters.length) return "";
+  const st = vstate(tab);
+  return `<div class="filters">${filters.map(f => {
+    const vals = [...new Set(rows.map(r => colGet(cols, f.k, r)).filter(v => v != null && v !== ""))].sort();
+    const opts = [`<option value="">All ${esc(f.label)}</option>`].concat(
+      vals.map(v => `<option value="${esc(v)}" ${st.f[f.k]===String(v)?"selected":""}>${esc(v)}</option>`));
+    return `<select class="flt" data-k="${esc(f.k)}">${opts.join("")}</select>`;
+  }).join("")}</div>`;
+}
+
+function dataTable(tab, { title, rows, columns, filters = [], defaultSort = null, prefix = "", empty: emptyMsg }) {
+  const st = vstate(tab, defaultSort);
+  const shown = applyView(rows, st, columns);
+  const head = columns.map(c => c.sortable
+    ? `<th data-k="${esc(c.k)}">${esc(c.label)}${st.sort && st.sort.k===c.k ? (st.sort.dir<0?" ▼":" ▲") : ""}</th>`
+    : `<th>${esc(c.label)}</th>`).join("");
+  const body = shown.map(r => "<tr>" + columns.map(c =>
+    `<td class="${c.cls||""}" data-label="${esc(c.label)}">${c.render ? c.render(r) : esc(r[c.k] ?? "—")}</td>`
+  ).join("") + "</tr>").join("");
+  const inner = !rows.length
+    ? `<div class="empty">${esc(emptyMsg || "No data yet.")}</div>`
+    : `${filterBar(tab, rows, filters, columns)}<div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>${shown.length ? "" : '<div class="empty">No rows match the filter.</div>'}`;
+  view().innerHTML = `${prefix}<div class="card"><h2>${esc(title)}</h2>${inner}</div>`;
+  view().querySelectorAll("select.flt").forEach(s => s.onchange = () => { st.f[s.dataset.k] = s.value; rerender(); });
+  view().querySelectorAll("th[data-k]").forEach(th => th.onclick = () => {
+    const k = th.dataset.k; st.sort = { k, dir: st.sort && st.sort.k===k ? -st.sort.dir : -1 }; rerender();
+  });
+}
+
+/* ---------- tabs ---------- */
 async function renderPortfolio() {
-  const { data, error } = await sb.from("recommendations").select("*")
-    .eq("kind", "holding").order("date", { ascending: false });
-  if (error) throw error;
-  const latest = dedupeByTicker(data || []);
-  if (!latest.length) return view().innerHTML = empty("No portfolio calls yet — first pipeline run pending.");
-  view().innerHTML = `<div class="card"><h2>Portfolio — latest calls</h2><div class="table-wrap"><table><thead><tr>
-    <th>Ticker</th><th>Call</th><th>Rationale</th><th>Conf</th><th>Date</th></tr></thead><tbody>
-    ${latest.map(r => `<tr><td class="mono" data-label="Ticker">${esc(r.ticker)}</td><td data-label="Call">${callPill(r.call)}</td>
-      <td data-label="Rationale">${esc(r.rationale)}</td><td data-label="Conf">${r.confidence_pct ?? "—"}%</td><td class="muted" data-label="Date">${esc(r.date)}</td></tr>`).join("")}
-    </tbody></table></div></div>`;
+  const rows = await load("portfolio", async () => {
+    const { data, error } = await sb.from("recommendations").select("*").eq("kind", "holding").order("date", { ascending: false });
+    if (error) throw error; return dedupeByTicker(data || []);
+  });
+  dataTable("portfolio", {
+    title: "Portfolio — latest calls", rows, empty: "No portfolio calls yet — first pipeline run pending.",
+    columns: [
+      { k: "ticker", label: "Ticker", cls: "mono", sortable: true },
+      { k: "call", label: "Call", sortable: true, render: r => callPill(r.call) },
+      { k: "rationale", label: "Rationale" },
+      { k: "confidence_pct", label: "Conf", sortable: true, get: r => r.confidence_pct ?? -1, render: r => (r.confidence_pct ?? "—") + "%" },
+      { k: "date", label: "Date", cls: "muted", sortable: true },
+    ],
+    filters: [{ k: "call", label: "Call" }], defaultSort: { k: "date", dir: -1 },
+  });
 }
 
 async function renderOpportunities() {
-  const { data, error } = await sb.from("scores").select("*").order("date", { ascending: false });
-  if (error) throw error;
-  let rows = dedupeByTicker(data || []);
-  if (!rows.length) return view().innerHTML = empty("No scores yet — first pipeline run pending.");
-  rows.sort((a, b) => state.sort.dir * ((a[state.sort.k] ?? -1) - (b[state.sort.k] ?? -1)));
-  const hdr = (k, l) => `<th data-k="${k}">${l}${state.sort.k===k?(state.sort.dir<0?" ▼":" ▲"):""}</th>`;
-  view().innerHTML = `<div class="card"><h2>Opportunities — latest scores</h2><div class="table-wrap"><table><thead><tr>
-    <th>Ticker</th>${hdr("score","Score")}${hdr("date","Date")}<th>Top signals</th></tr></thead><tbody>
-    ${rows.map(r => `<tr><td class="mono" data-label="Ticker">${esc(r.ticker)}</td>
-      <td data-label="Score"><b>${r.score ?? "n/a"}</b></td><td class="muted" data-label="Date">${esc(r.date)}</td>
-      <td class="muted" data-label="Signals">${(r.signals||[]).slice(0,3).map(s=>esc(s.metric)+"="+esc(s.value)).join(", ")}</td></tr>`).join("")}
-    </tbody></table></div></div>`;
-  document.querySelectorAll("th[data-k]").forEach(th => th.onclick = () => {
-    const k = th.dataset.k; state.sort = { k, dir: state.sort.k===k ? -state.sort.dir : -1 }; renderOpportunities();
+  const rows = await load("opportunities", async () => {
+    const { data, error } = await sb.from("scores").select("*").order("date", { ascending: false });
+    if (error) throw error; return dedupeByTicker(data || []);
+  });
+  dataTable("opportunities", {
+    title: "Opportunities — latest scores", rows, empty: "No scores yet — first pipeline run pending.",
+    columns: [
+      { k: "ticker", label: "Ticker", cls: "mono", sortable: true },
+      { k: "score", label: "Score", sortable: true, get: r => r.score ?? -1, render: r => `<b>${r.score ?? "n/a"}</b>` },
+      { k: "date", label: "Date", cls: "muted", sortable: true },
+      { k: "signals", label: "Top signals", cls: "muted", render: r => esc((r.signals || []).slice(0, 3).map(s => s.metric + "=" + s.value).join(", ")) },
+    ],
+    defaultSort: { k: "score", dir: -1 },
   });
 }
 
 async function renderForecasts() {
-  const [{ data: outs }, { data: fcs }] = await Promise.all([
-    sb.from("forecast_outcomes").select("*"),
-    sb.from("forecasts").select("*"),
-  ]);
-  const n = (outs||[]).length;
-  const hits = (outs||[]).filter(o => o.outcome === "hit").length;
-  const avgAlpha = n ? (outs.reduce((a,o)=>a+(o.alpha_pct||0),0)/n) : null;
-  const open = (fcs||[]).filter(f => f.status === "open").length;
-  view().innerHTML = `
-    <div class="kpis" style="margin-bottom:16px">
+  const [outs, fcs] = await load("forecasts", async () => {
+    const [a, b] = await Promise.all([sb.from("forecast_outcomes").select("*"), sb.from("forecasts").select("*")]);
+    if (a.error) throw a.error; if (b.error) throw b.error; return [a.data || [], b.data || []];
+  });
+  const n = outs.length, hits = outs.filter(o => o.outcome === "hit").length;
+  const avgAlpha = n ? outs.reduce((s, o) => s + (o.alpha_pct || 0), 0) / n : null;
+  const open = fcs.filter(f => f.status === "open").length;
+  const kpis = `<div class="kpis" style="margin-bottom:16px">
       <div class="kpi"><div class="l">Graded</div><div class="v">${n}</div></div>
-      <div class="kpi"><div class="l">Hit-rate</div><div class="v">${n?Math.round(hits/n*100)+"%":"—"}</div></div>
-      <div class="kpi"><div class="l">Avg alpha</div><div class="v">${avgAlpha==null?"—":(avgAlpha*100).toFixed(1)+"%"}</div></div>
+      <div class="kpi"><div class="l">Hit-rate</div><div class="v">${n ? Math.round(hits / n * 100) + "%" : "—"}</div></div>
+      <div class="kpi"><div class="l">Avg alpha</div><div class="v">${avgAlpha == null ? "—" : (avgAlpha * 100).toFixed(1) + "%"}</div></div>
       <div class="kpi"><div class="l">Open</div><div class="v">${open}</div></div>
-    </div>
-    <div class="card"><h2>Forecast ledger — graded</h2>${
-      n ? `<div class="table-wrap"><table><thead><tr><th>Forecast</th><th>Outcome</th><th>Return</th><th>Bench</th><th>Alpha</th><th>Eval</th></tr></thead><tbody>
-        ${outs.map(o=>`<tr><td class="mono" data-label="Forecast">${esc(o.forecast_id)}</td>
-          <td data-label="Outcome">${callPill(o.outcome==="hit"?"add":o.outcome==="miss"?"sell":"hold")}${esc(o.outcome)}</td>
-          <td data-label="Return">${pct(o.return_pct)}</td><td class="muted" data-label="Bench">${esc(o.benchmark)} ${pct(o.benchmark_return_pct)}</td>
-          <td data-label="Alpha"><b>${pct(o.alpha_pct)}</b></td><td class="muted" data-label="Eval">${esc(o.eval_date)}</td></tr>`).join("")}
-        </tbody></table></div>` : `<div class="empty">No forecasts graded yet — they grade once their horizon elapses.</div>`
-    }</div>`;
+    </div>`;
+  dataTable("forecasts", {
+    prefix: kpis, title: "Forecast ledger — graded", rows: outs,
+    empty: "No forecasts graded yet — they grade once their horizon elapses.",
+    columns: [
+      { k: "forecast_id", label: "Forecast", cls: "mono" },
+      { k: "outcome", label: "Outcome", sortable: true, render: r => callPill(r.outcome === "hit" ? "add" : r.outcome === "miss" ? "sell" : "hold") + esc(r.outcome) },
+      { k: "return_pct", label: "Return", sortable: true, get: r => r.return_pct ?? -999, render: r => pct(r.return_pct) },
+      { k: "benchmark", label: "Bench", cls: "muted", render: r => esc(r.benchmark) + " " + pct(r.benchmark_return_pct) },
+      { k: "alpha_pct", label: "Alpha", sortable: true, get: r => r.alpha_pct ?? -999, render: r => `<b>${pct(r.alpha_pct)}</b>` },
+      { k: "eval_date", label: "Eval", cls: "muted", sortable: true },
+    ],
+    filters: [{ k: "outcome", label: "Outcome" }], defaultSort: { k: "eval_date", dir: -1 },
+  });
 }
 
 async function renderShortseller() {
-  const { data, error } = await sb.from("shortseller_reports").select("*").order("date", { ascending: false });
-  if (error) throw error;
-  if (!(data||[]).length) return view().innerHTML = empty("No short-seller reports yet.");
-  view().innerHTML = `<div class="card"><h2>Short-seller checks</h2><div class="table-wrap"><table><thead><tr>
-    <th>Ticker</th><th>Verdict</th><th>Date</th></tr></thead><tbody>
-    ${data.map(r=>`<tr><td class="mono" data-label="Ticker">${esc(r.ticker)}</td><td data-label="Verdict">${esc(r.verdict)}</td><td class="muted" data-label="Date">${esc(r.date)}</td></tr>`).join("")}
-    </tbody></table></div></div>`;
+  const rows = await load("shortseller", async () => {
+    const { data, error } = await sb.from("shortseller_reports").select("*").order("date", { ascending: false });
+    if (error) throw error; return data || [];
+  });
+  dataTable("shortseller", {
+    title: "Short-seller checks", rows, empty: "No short-seller reports yet.",
+    columns: [
+      { k: "ticker", label: "Ticker", cls: "mono", sortable: true },
+      { k: "verdict", label: "Verdict", sortable: true },
+      { k: "date", label: "Date", cls: "muted", sortable: true },
+    ],
+    filters: [{ k: "verdict", label: "Verdict" }], defaultSort: { k: "date", dir: -1 },
+  });
 }
 
 async function renderSpeculative() {
-  const { data, error } = await sb.from("spec_candidates").select("*").order("date", { ascending: false });
-  if (error) throw error;
-  const rows = dedupeByTicker(data || []);
+  const rows = await load("speculative", async () => {
+    const { data, error } = await sb.from("spec_candidates").select("*").order("date", { ascending: false });
+    if (error) throw error; return dedupeByTicker(data || []);
+  });
   if (!rows.length) return view().innerHTML = empty("No speculative ideas yet — weekly only, and only when a sourced catalyst is found.");
-  view().innerHTML = `<div class="card">
-    <h2>Speculative / high-risk — small bets only</h2>
-    <div class="empty" style="padding:0 0 10px">Very cheap, beaten-down names with big upside <b>if</b> a specific catalyst plays out — and real risk of a total loss. Each has a sourced catalyst (no hope-bets). Lottery-ticket sizing, never core positions.</div>
-    ${rows.map(r => {
-      const cat = (r.catalyst && r.catalyst.claim) ? r.catalyst.claim : "";
-      return `<div class="card" style="margin:10px 0">
-        <div><span class="mono" style="font-weight:700">${esc(r.ticker)}</span>
-          <span class="iv-badge iv-badge-danger" style="margin-left:8px">HIGH RISK</span>
-          <span class="muted" style="margin-left:8px">max ${esc(r.suggested_max_position_pct ?? "≤2")}% · conviction ${esc(r.conviction || "low")}</span></div>
-        <div style="margin-top:6px"><b>Catalyst:</b> ${esc(cat)}</div>
-        ${r.upside ? `<div><b>If it works:</b> ${esc(r.upside)}</div>` : ""}
-        <div><b>If it doesn't:</b> ${esc(r.downside || "can lose the whole position")}</div>
-        <div class="muted" style="margin-top:4px;font-size:11px">${esc(r.date)}</div>
-      </div>`;
-    }).join("")}
+  const st = vstate("speculative", { k: "date", dir: -1 });
+  const convs = [...new Set(rows.map(r => r.conviction).filter(Boolean))].sort();
+  let shown = rows.filter(r => !st.f.conviction || r.conviction === st.f.conviction);
+  shown = shown.slice().sort((a, b) => st.sort.k === "chg_52w"
+    ? st.sort.dir * ((a.chg_52w ?? 0) - (b.chg_52w ?? 0))
+    : st.sort.dir * String(a[st.sort.k] ?? "").localeCompare(String(b[st.sort.k] ?? "")));
+  const bar = `<div class="filters">
+    <select class="sflt"><option value="">All conviction</option>${convs.map(c => `<option ${st.f.conviction === c ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>
+    <select class="ssort"><option value="date" ${st.sort.k === "date" ? "selected" : ""}>Newest first</option><option value="chg_52w" ${st.sort.k === "chg_52w" ? "selected" : ""}>Most beaten-down</option></select>
   </div>`;
+  const cards = shown.length ? shown.map(r => {
+    const cat = (r.catalyst && r.catalyst.claim) ? r.catalyst.claim : "";
+    return `<div class="card" style="margin:10px 0">
+      <div><span class="mono" style="font-weight:700">${esc(r.ticker)}</span>
+        <span class="iv-badge iv-badge-danger" style="margin-left:8px">HIGH RISK</span>
+        <span class="muted" style="margin-left:8px">max ${esc(r.suggested_max_position_pct ?? "≤2")}% · conviction ${esc(r.conviction || "low")}</span></div>
+      <div style="margin-top:6px"><b>Catalyst:</b> ${esc(cat)}</div>
+      ${r.upside ? `<div><b>If it works:</b> ${esc(r.upside)}</div>` : ""}
+      <div><b>If it doesn't:</b> ${esc(r.downside || "can lose the whole position")}</div>
+      <div class="muted" style="margin-top:4px;font-size:11px">${esc(r.date)}</div>
+    </div>`;
+  }).join("") : '<div class="empty">No rows match the filter.</div>';
+  view().innerHTML = `<div class="card"><h2>Speculative / high-risk — small bets only</h2>
+    <div class="empty" style="padding:0 0 10px">Very cheap, beaten-down names with big upside <b>if</b> a specific catalyst plays out — and real risk of a total loss. Each has a sourced catalyst (no hope-bets). Lottery-ticket sizing, never core positions.</div>
+    ${bar}${cards}</div>`;
+  view().querySelector(".sflt").onchange = e => { st.f.conviction = e.target.value; rerender(); };
+  view().querySelector(".ssort").onchange = e => { st.sort = { k: e.target.value, dir: e.target.value === "chg_52w" ? 1 : -1 }; rerender(); };
 }
 
 function dedupeByTicker(rows) { const seen = new Set(); return rows.filter(r => !seen.has(r.ticker) && seen.add(r.ticker)); }
