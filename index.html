@@ -3,60 +3,71 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Investment Agent — Dashboard</title>
+<title>InvestAI — Dashboard</title>
+<link rel="icon" href="investai-ds/logo/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="investai-ds/logo/investai-icon.svg">
+<link rel="apple-touch-icon" href="investai-ds/logo/icon-180.png">
+<link rel="stylesheet" href="investai-ds/investai.css">
 <style>
-  :root{--bg:#0b0f14;--panel:#131a23;--border:#222c39;--txt:#e7ecf3;--muted:#8b94a6;
-        --good:#2fd6a6;--bad:#ff5763;--accent:#3d8bff;--mono:"SF Mono",ui-monospace,Menlo,monospace}
-  *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--txt);
-    font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-  header{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border)}
-  header h1{font-size:15px;margin:0;font-weight:700}
-  header .sp{flex:1}
-  button{background:var(--accent);border:0;color:#fff;border-radius:8px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer}
-  button.ghost{background:var(--panel);border:1px solid var(--border)}
-  main{padding:18px 20px;max-width:1100px;margin:0 auto}
-  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
-  .tabs button{background:var(--panel);border:1px solid var(--border);color:var(--muted)}
-  .tabs button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
-  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:14px}
-  .card h2{font-size:13px;margin:0 0 10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
-  table{width:100%;border-collapse:collapse;font-size:13px}
-  th{text-align:left;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;padding:6px 8px;border-bottom:1px solid var(--border)}
-  td{padding:7px 8px;border-bottom:1px solid #161d28;font-variant-numeric:tabular-nums}
-  th[data-k]{cursor:pointer} th[data-k]:hover{color:var(--txt)}
-  .mono{font-family:var(--mono)} .muted{color:var(--muted)}
-  .pill{display:inline-block;padding:1px 8px;border-radius:20px;font-size:10.5px;font-weight:600}
-  .buy,.add{background:rgba(47,214,166,.15);color:var(--good)}
-  .sell,.trim{background:rgba(255,87,99,.15);color:var(--bad)}
-  .hold{background:#222c3b;color:var(--muted)}
-  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
-  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
-  .kpi .v{font-size:22px;font-weight:700} .kpi .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
-  .empty{color:var(--muted);padding:18px 4px}
-  .login{max-width:360px;margin:12vh auto;text-align:center}
-  .login input{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--txt);margin:10px 0}
-  .foot{color:var(--muted);font-size:11px;margin-top:20px}
-  .err{color:var(--bad);font-size:12px}
-  /* ---- responsive: phones get stacked label/value cards instead of wide tables ---- */
+  /* Dashboard-specific, all token-driven (extends the InvestAI design system in its spirit). */
+  *{box-sizing:border-box} body{margin:0}
+  .appbar{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border);
+    background:var(--surface-card);position:sticky;top:0;z-index:5}
+  .appbar .brand{display:inline-flex;align-items:center;text-decoration:none}
+  .appbar .brand img{height:24px;width:auto;display:block}
+  .appbar .sp{flex:1}
+  .appbar .who{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--text-muted)}
+  main{padding:24px 20px;max-width:var(--container);margin:0 auto}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+  .tabs button{font-family:var(--font-body);font-weight:600;font-size:var(--fs-sm);cursor:pointer;
+    padding:.5rem 1rem;border-radius:var(--r-pill);border:1px solid var(--border-strong);
+    background:var(--surface-card);color:var(--text-muted);transition:all var(--dur) var(--ease-out)}
+  .tabs button:hover{border-color:var(--c-blue);color:var(--c-blue)}
+  .tabs button.on{background:var(--primary);color:var(--primary-ink);border-color:var(--primary);box-shadow:var(--shadow-sm)}
+  .card{background:var(--surface-card);border:1px solid var(--border);border-radius:var(--r-lg);
+    box-shadow:var(--shadow-md);padding:18px 20px;margin-bottom:16px}
+  .card h2{font-family:var(--font-mono);text-transform:uppercase;letter-spacing:var(--tracking-eyebrow);
+    font-size:var(--fs-eyebrow);color:var(--c-blue);margin:0 0 14px;display:inline-flex;align-items:center;gap:8px}
+  .card h2::before{content:"";width:28px;height:2px;border-radius:2px;background:var(--grad-spectrum)}
+  table{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
+  th{text-align:left;font-family:var(--font-mono);color:var(--text-subtle);font-size:var(--fs-eyebrow);
+    text-transform:uppercase;letter-spacing:.08em;padding:8px;border-bottom:1px solid var(--border)}
+  td{padding:9px 8px;border-bottom:1px solid var(--border);color:var(--text);font-variant-numeric:tabular-nums}
+  th[data-k]{cursor:pointer} th[data-k]:hover{color:var(--text-strong)}
+  .mono{font-family:var(--font-mono);color:var(--text-strong)}
+  .muted{color:var(--text-muted)}
+  .iv-badge-danger{background:rgba(226,82,71,.14);color:var(--danger)}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}
+  .kpi{background:var(--surface-card);border:1px solid var(--border);border-radius:var(--r-lg);
+    box-shadow:var(--shadow-sm);padding:14px 16px}
+  .kpi .v{font-family:var(--font-display);font-weight:600;font-size:var(--fs-2xl);color:var(--text-strong);
+    font-variant-numeric:tabular-nums;letter-spacing:var(--tracking-display)}
+  .kpi .l{font-family:var(--font-mono);font-size:var(--fs-eyebrow);color:var(--text-subtle);
+    text-transform:uppercase;letter-spacing:.12em}
+  .empty{color:var(--text-muted);padding:18px 4px}
+  .login{max-width:380px;margin:13vh auto;text-align:center;padding:0 20px}
+  .login .mark{height:60px;width:auto;margin-bottom:10px}
+  .login h1{font-family:var(--font-display);font-weight:600;letter-spacing:var(--tracking-display);
+    color:var(--text-strong);font-size:var(--fs-3xl);margin:0 0 4px}
+  .foot{color:var(--text-subtle);font-size:var(--fs-xs);margin-top:24px}
+  .err{color:var(--danger);font-size:var(--fs-sm)}
   .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
   @media (max-width:640px){
-    header{padding:10px 14px;gap:8px}
-    header h1{font-size:14px}
-    header .muted{display:none}                 /* hide email to save width on phone */
-    main{padding:14px 12px}
-    .tabs button{flex:1 1 auto}                  /* full-width tap targets */
+    .appbar{padding:12px 14px} .appbar .who{display:none}
+    main{padding:16px 12px}
+    .tabs button{flex:1 1 auto}
     .kpis{grid-template-columns:repeat(2,1fr)}
     table,thead,tbody,tr,td{display:block;width:100%}
-    thead{display:none}                          /* labels come from data-label instead */
-    tr{border:1px solid var(--border);border-radius:10px;margin-bottom:10px;padding:4px 12px}
-    td{border:0;padding:6px 0;display:flex;justify-content:space-between;align-items:baseline;gap:12px;text-align:right}
-    td::before{content:attr(data-label);color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px;text-align:left;flex:0 0 38%}
+    thead{display:none}
+    tr{border:1px solid var(--border);border-radius:var(--r-md);margin-bottom:10px;padding:4px 12px;background:var(--surface-card)}
+    td{border:0;padding:7px 0;display:flex;justify-content:space-between;align-items:baseline;gap:12px;text-align:right}
+    td::before{content:attr(data-label);font-family:var(--font-mono);color:var(--text-subtle);font-size:var(--fs-eyebrow);
+      text-transform:uppercase;letter-spacing:.06em;text-align:left;flex:0 0 38%}
     td:first-child{font-weight:700;border-bottom:1px solid var(--border);margin-bottom:2px;padding-top:8px}
   }
-  @media (min-width:1280px){ main{max-width:1240px} }
 </style>
 </head>
-<body>
+<body class="iv-body">
 <div id="app"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -69,7 +80,8 @@ const DISCLAIMER = "Research, not financial advice. Evidence-based; unsourced it
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const app = document.getElementById("app");
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
-const callPill = c => `<span class="pill ${esc(c)}">${esc(c)}</span>`;
+const CALL_BADGE = { buy:"iv-badge-success", add:"iv-badge-success", sell:"iv-badge-danger", trim:"iv-badge-danger", hold:"" };
+const callPill = c => `<span class="iv-badge ${CALL_BADGE[c] || ""}">${esc(c)}</span>`;
 
 let state = { tab: "portfolio", sort: { k: "score", dir: -1 } };
 
@@ -81,10 +93,11 @@ async function boot() {
 
 function renderLogin(msg) {
   app.innerHTML = `<div class="login">
-    <h1>Investment Agent</h1>
-    <p class="muted">Sign in with GitHub to view your dashboard.</p>
-    <button id="gh" style="width:100%">Continue with GitHub</button>
-    <div id="msg" class="muted" style="margin-top:10px">${msg || ""}</div>
+    <img class="mark" src="investai-ds/logo/investai-mark.svg" alt="InvestAI">
+    <h1>InvestAI</h1>
+    <p class="iv-muted">Sign in with GitHub to view your dashboard.</p>
+    <button id="gh" class="iv-btn iv-btn-aurora" style="width:100%;margin-top:8px">Continue with GitHub</button>
+    <div id="msg" class="muted" style="margin-top:12px">${msg || ""}</div>
   </div>`;
   document.getElementById("gh").onclick = async () => {
     const { error } = await sb.auth.signInWithOAuth({ provider: "github",
@@ -95,10 +108,11 @@ function renderLogin(msg) {
 
 function renderShell(session) {
   app.innerHTML = `
-    <header>
-      <h1>📈 Investment Agent</h1><span class="sp"></span>
-      <span class="muted" style="font-size:12px">${esc(session.user.email)}</span>
-      <button class="ghost" id="logout">Sign out</button>
+    <header class="appbar">
+      <a class="brand" href="."><img src="investai-ds/logo/investai-wordmark.svg" alt="InvestAI"></a>
+      <span class="sp"></span>
+      <span class="who">${esc(session.user.email)}</span>
+      <button class="iv-btn iv-btn-secondary iv-btn-sm" id="logout">Sign out</button>
     </header>
     <main>
       <div class="tabs">
@@ -170,7 +184,7 @@ async function renderForecasts() {
   const avgAlpha = n ? (outs.reduce((a,o)=>a+(o.alpha_pct||0),0)/n) : null;
   const open = (fcs||[]).filter(f => f.status === "open").length;
   view().innerHTML = `
-    <div class="kpis" style="margin-bottom:14px">
+    <div class="kpis" style="margin-bottom:16px">
       <div class="kpi"><div class="l">Graded</div><div class="v">${n}</div></div>
       <div class="kpi"><div class="l">Hit-rate</div><div class="v">${n?Math.round(hits/n*100)+"%":"—"}</div></div>
       <div class="kpi"><div class="l">Avg alpha</div><div class="v">${avgAlpha==null?"—":(avgAlpha*100).toFixed(1)+"%"}</div></div>
@@ -208,7 +222,7 @@ async function renderSpeculative() {
       const cat = (r.catalyst && r.catalyst.claim) ? r.catalyst.claim : "";
       return `<div class="card" style="margin:10px 0">
         <div><span class="mono" style="font-weight:700">${esc(r.ticker)}</span>
-          <span class="pill sell" style="margin-left:8px">HIGH RISK</span>
+          <span class="iv-badge iv-badge-danger" style="margin-left:8px">HIGH RISK</span>
           <span class="muted" style="margin-left:8px">max ${esc(r.suggested_max_position_pct ?? "≤2")}% · conviction ${esc(r.conviction || "low")}</span></div>
         <div style="margin-top:6px"><b>Catalyst:</b> ${esc(cat)}</div>
         ${r.upside ? `<div><b>If it works:</b> ${esc(r.upside)}</div>` : ""}

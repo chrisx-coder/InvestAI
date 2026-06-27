@@ -1,0 +1,132 @@
+/* ============================================================
+   InvestAI — Components
+   Plain, framework-agnostic classes. Requires tokens.css.
+   Prefix: .iv-  (collision-safe)
+   ============================================================ */
+
+/* ---------- Base ---------- */
+.iv-root, .iv-body {
+  font-family: var(--font-body);
+  color: var(--text);
+  background: var(--surface-page);
+  font-size: var(--fs-base);
+  line-height: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+}
+.iv-container { width: 100%; max-width: var(--container); margin-inline: auto; padding-inline: var(--sp-5); }
+.iv-section   { padding-block: var(--section-pad); }
+
+/* ---------- Typography ---------- */
+.iv-display   { font-family: var(--font-display); font-weight: 600; color: var(--text-strong);
+                letter-spacing: var(--tracking-display); line-height: var(--lh-tight); }
+.iv-h1 { font-family: var(--font-display); font-weight: 600; letter-spacing: var(--tracking-display);
+         line-height: var(--lh-tight); font-size: var(--fs-4xl); color: var(--text-strong); }
+.iv-h2 { font-family: var(--font-display); font-weight: 600; letter-spacing: var(--tracking-display);
+         line-height: 1.12; font-size: var(--fs-3xl); color: var(--text-strong); }
+.iv-h3 { font-family: var(--font-display); font-weight: 600; line-height: 1.2; font-size: var(--fs-xl); color: var(--text-strong); }
+.iv-lead   { font-size: var(--fs-lg); color: var(--text-muted); line-height: var(--lh-snug); }
+.iv-muted  { color: var(--text-muted); }
+.iv-mono   { font-family: var(--font-mono); }
+
+.iv-eyebrow {
+  font-family: var(--font-mono); text-transform: uppercase;
+  letter-spacing: var(--tracking-eyebrow); font-size: var(--fs-eyebrow);
+  color: var(--c-blue); display: inline-flex; align-items: center; gap: var(--sp-2);
+}
+.iv-eyebrow::before { content: ""; width: 28px; height: 2px; border-radius: 2px; background: var(--grad-spectrum); }
+
+.iv-text-gradient {
+  background: var(--grad-spectrum); -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+
+/* ---------- Buttons (always pills) ---------- */
+.iv-btn {
+  font-family: var(--font-body); font-weight: 600; font-size: var(--fs-sm);
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
+  padding: 0.7rem 1.4rem; border-radius: var(--r-pill); border: 1px solid transparent;
+  cursor: pointer; text-decoration: none; white-space: nowrap; line-height: 1;
+  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur) var(--ease-out),
+              background var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out);
+}
+.iv-btn:active { transform: translateY(1px); }
+.iv-btn-primary   { background: var(--primary); color: var(--primary-ink); box-shadow: var(--shadow-sm); }
+.iv-btn-primary:hover   { background: var(--c-blue-strong); box-shadow: var(--shadow-glow); }
+.iv-btn-aurora    { background: var(--grad-aurora); color: #fff; box-shadow: var(--shadow-glow); } /* hero CTA only */
+.iv-btn-aurora:hover    { box-shadow: var(--shadow-orchid); }
+.iv-btn-secondary { background: var(--surface-card); color: var(--text-strong); border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
+.iv-btn-secondary:hover { border-color: var(--c-blue); color: var(--c-blue); }
+.iv-btn-ghost     { background: transparent; color: var(--text-strong); }
+.iv-btn-ghost:hover     { background: var(--surface-sunk); }
+.iv-btn-lg { padding: 0.95rem 1.9rem; font-size: var(--fs-base); }
+.iv-btn-sm { padding: 0.5rem 1rem; font-size: var(--fs-xs); }
+.iv-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ---------- Cards ---------- */
+.iv-card {
+  background: var(--surface-card); border: 1px solid var(--border);
+  border-radius: var(--r-lg); box-shadow: var(--shadow-md); padding: var(--sp-6);
+  transition: transform var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out);
+}
+.iv-card-hover:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+.iv-card-accent { position: relative; overflow: hidden; }
+.iv-card-accent::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px; background: var(--grad-spectrum); }
+.iv-card-dark { background: var(--grad-ink); color: var(--text-on-dark); border-color: rgba(255,255,255,.1); }
+.iv-card-dark .iv-h3, .iv-card-dark .iv-display { color: #fff; }
+
+/* ---------- Stat (finance-tuned) ---------- */
+.iv-stat-label { font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .12em;
+                 font-size: var(--fs-eyebrow); color: var(--text-subtle); }
+.iv-stat-value { font-family: var(--font-display); font-weight: 600; font-size: var(--fs-3xl);
+                 color: var(--text-strong); letter-spacing: var(--tracking-display);
+                 font-variant-numeric: tabular-nums; }
+.iv-delta { font-family: var(--font-mono); font-size: var(--fs-sm); font-weight: 700;
+            display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
+.iv-delta.up   { color: var(--success); }
+.iv-delta.down { color: var(--danger); }
+.iv-delta.up::before   { content: "▲"; font-size: .7em; }
+.iv-delta.down::before { content: "▼"; font-size: .7em; }
+
+/* ---------- Badges / pills ---------- */
+.iv-badge {
+  display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-body);
+  font-weight: 600; font-size: var(--fs-xs); padding: 0.25rem 0.7rem;
+  border-radius: var(--r-pill); background: var(--surface-sunk); color: var(--text);
+}
+.iv-badge-blue   { background: rgba(71,123,209,.12);  color: var(--c-blue-strong); }
+.iv-badge-orchid { background: rgba(196,78,176,.12);  color: #9C3A8A; }
+.iv-badge-teal   { background: rgba(70,178,152,.14);  color: #1F8169; }
+.iv-badge-success{ background: rgba(31,158,107,.14);  color: var(--success); }
+.iv-badge-dot::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+/* ---------- Forms ---------- */
+.iv-field  { display: flex; flex-direction: column; gap: var(--sp-2); }
+.iv-label  { font-size: var(--fs-sm); font-weight: 600; color: var(--text-strong); }
+.iv-input, .iv-select {
+  font-family: var(--font-body); font-size: var(--fs-base); color: var(--text-strong);
+  background: var(--surface-card); border: 1px solid var(--border-strong);
+  border-radius: var(--r-md); padding: 0.7rem 0.9rem; width: 100%;
+  transition: border-color var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out);
+}
+.iv-input::placeholder { color: var(--text-subtle); }
+.iv-input:focus, .iv-select:focus {
+  outline: none; border-color: var(--c-blue);
+  box-shadow: 0 0 0 3px rgba(71,123,209,.18);
+}
+
+/* ---------- Nav ---------- */
+.iv-nav { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-6);
+          padding-block: var(--sp-4); }
+.iv-nav-links { display: flex; align-items: center; gap: var(--sp-6); list-style: none; margin: 0; padding: 0; }
+.iv-nav-link  { font-size: var(--fs-sm); font-weight: 500; color: var(--text-muted); text-decoration: none;
+                transition: color var(--dur) var(--ease-out); }
+.iv-nav-link:hover { color: var(--text-strong); }
+.iv-brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+.iv-brand img { height: 30px; width: auto; display: block; }
+.iv-brand-name { font-family: var(--font-display); font-weight: 600; font-size: var(--fs-lg);
+                 letter-spacing: -0.01em; color: var(--text-strong); }
+
+/* ---------- Misc ---------- */
+.iv-divider { height: 1px; background: var(--border); border: 0; }
+.iv-rule    { width: 28px; height: 2px; border-radius: 2px; background: var(--grad-spectrum); border: 0; }
+.iv-surface-ink { background: var(--grad-ink); color: var(--text-on-dark); }

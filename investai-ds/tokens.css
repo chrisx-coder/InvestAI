@@ -1,0 +1,117 @@
+/* ============================================================
+   InvestAI — Design Tokens
+   Light, calm, operator-grade. Cosmic-spectrum brand
+   (blue → orchid → teal) over deep navy ink.
+   Import this FIRST, then components.css.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+:root {
+  /* ---- Brand palette ---- */
+  --c-blue:        #477BD1;   /* primary */
+  --c-blue-strong: #2F5FAE;
+  --c-orchid:      #C44EB0;
+  --c-teal:        #46B298;
+  --c-teal-soft:   #6ECFBE;
+  --c-lavender:    #B8B8D1;
+
+  /* ---- Ink ---- */
+  --c-navy:        #0D1333;   /* darkest ink / headings */
+  --c-indigo:      #18276C;
+
+  /* ---- Neutrals (light theme) ---- */
+  --surface-page:  #F6F7FB;   /* page background */
+  --surface-card:  #FFFFFF;   /* cards, panels */
+  --surface-sunk:  #EEF0F7;   /* wells, inputs */
+  --border:        #E6E8F2;   /* hairlines */
+  --border-strong: #D3D7E6;
+
+  --text-strong:   #0D1333;   /* primary text */
+  --text:          #3A4060;   /* body */
+  --text-muted:    #6B7191;
+  --text-subtle:   #9AA0B8;
+  --text-on-dark:  #FFFFFF;
+
+  /* ---- Semantic ---- */
+  --primary:       var(--c-blue);
+  --primary-ink:   #FFFFFF;
+  --success:       #1F9E6B;   /* gains */
+  --danger:        #E25247;   /* losses */
+  --warning:       #DD9D31;
+  --info:          var(--c-blue);
+
+  /* ---- Gradients (the brand signature) ---- */
+  --grad-spectrum: linear-gradient(90deg, #C44EB0 0%, #477BD1 50%, #46B298 100%);
+  --grad-spectrum-diag: linear-gradient(135deg, #C44EB0 0%, #477BD1 50%, #46B298 100%);
+  --grad-ink:      linear-gradient(150deg, #18276C 0%, #0D1333 100%);
+  --grad-aurora:   linear-gradient(120deg, #477BD1 0%, #6E5CD0 45%, #C44EB0 100%);
+
+  /* ---- Typography ---- */
+  --font-display: 'Space Grotesk', system-ui, sans-serif; /* headings, brand */
+  --font-body:    'Figtree', system-ui, sans-serif;       /* UI + body */
+  --font-mono:    'Space Mono', ui-monospace, monospace;  /* numbers, data, codes */
+
+  --fs-eyebrow: 0.75rem;   /* 12px */
+  --fs-xs:   0.8125rem;    /* 13 */
+  --fs-sm:   0.875rem;     /* 14 */
+  --fs-base: 1rem;         /* 16 */
+  --fs-lg:   1.125rem;     /* 18 */
+  --fs-xl:   1.375rem;     /* 22 */
+  --fs-2xl:  1.75rem;      /* 28 */
+  --fs-3xl:  2.25rem;      /* 36 */
+  --fs-4xl:  3rem;         /* 48 */
+  --fs-5xl:  3.75rem;      /* 60 */
+
+  --lh-tight: 1.08;
+  --lh-snug:  1.3;
+  --lh-body:  1.6;
+
+  --tracking-display: -0.02em;
+  --tracking-eyebrow:  0.16em;
+
+  /* ---- Spacing (8px grid) ---- */
+  --sp-1: 0.25rem; --sp-2: 0.5rem;  --sp-3: 0.75rem; --sp-4: 1rem;
+  --sp-5: 1.5rem;  --sp-6: 2rem;    --sp-8: 3rem;    --sp-10: 4rem;
+  --sp-12: 6rem;   --sp-16: 8rem;
+
+  --container: 1200px;
+  --section-pad: 6rem;
+
+  /* ---- Radius ---- */
+  --r-sm:   8px;
+  --r-md:   12px;   /* inputs */
+  --r-lg:   16px;   /* cards */
+  --r-xl:   24px;
+  --r-pill: 999px;  /* buttons are always pills */
+
+  /* ---- Shadows (cool indigo tint, never neutral grey) ---- */
+  --shadow-sm:  0 1px 2px rgba(13,19,51,.06), 0 1px 3px rgba(13,19,51,.08);
+  --shadow-md:  0 4px 12px rgba(13,19,51,.08), 0 2px 6px rgba(13,19,51,.06);
+  --shadow-lg:  0 18px 40px rgba(13,19,51,.12), 0 6px 14px rgba(13,19,51,.08);
+  --shadow-glow:   0 8px 28px rgba(71,123,209,.35);
+  --shadow-orchid: 0 8px 28px rgba(196,78,176,.30);
+
+  /* ---- Motion ---- */
+  --ease-out: cubic-bezier(.22,.61,.36,1);
+  --dur-fast: 140ms;
+  --dur:      240ms;
+  --dur-slow: 420ms;
+}
+
+/* Optional dark surface tokens — apply to a section with [data-theme="dark"] */
+[data-theme="dark"] {
+  --surface-page: #0D1333;
+  --surface-card: #14204F;
+  --surface-sunk: #0A0F28;
+  --border:        rgba(255,255,255,.12);
+  --border-strong: rgba(255,255,255,.22);
+  --text-strong:   #FFFFFF;
+  --text:          #D7DBEC;
+  --text-muted:    #9AA0C4;
+  --text-subtle:   #6E76A0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-fast: 0ms; --dur: 0ms; --dur-slow: 0ms; }
+}
