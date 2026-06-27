@@ -82,26 +82,14 @@ async function boot() {
 function renderLogin(msg) {
   app.innerHTML = `<div class="login">
     <h1>Investment Agent</h1>
-    <p class="muted">Sign in to view your dashboard.</p>
+    <p class="muted">Sign in with GitHub to view your dashboard.</p>
     <button id="gh" style="width:100%">Continue with GitHub</button>
-    <div class="muted" style="margin:12px 0;font-size:12px">— or —</div>
-    <input id="email" type="email" placeholder="your email" autocomplete="email"/>
-    <button id="send" class="ghost" style="width:100%">Send magic link</button>
     <div id="msg" class="muted" style="margin-top:10px">${msg || ""}</div>
   </div>`;
   document.getElementById("gh").onclick = async () => {
     const { error } = await sb.auth.signInWithOAuth({ provider: "github",
       options: { redirectTo: location.href.split("#")[0] } });
     if (error) document.getElementById("msg").innerHTML = `<span class="err">${esc(error.message)}</span>`;
-  };
-  document.getElementById("send").onclick = async () => {
-    const email = document.getElementById("email").value.trim();
-    if (!email) return;
-    document.getElementById("msg").textContent = "Sending…";
-    const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.href.split("#")[0] } });
-    document.getElementById("msg").innerHTML = error
-      ? `<span class="err">${esc(error.message)}</span>`
-      : "Check your email for the sign-in link.";
   };
 }
 
