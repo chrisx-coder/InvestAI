@@ -98,7 +98,7 @@ const callPill = c => `<span class="iv-badge ${CALL_BADGE[c] || ""}">${esc(c)}</
 const fmtNum = x => (x == null || x === "") ? "—" : (Math.abs(x) >= 1e9 ? (x/1e9).toFixed(1)+"B" : Math.abs(x) >= 1e6 ? (x/1e6).toFixed(1)+"M" : (+x).toLocaleString(undefined,{maximumFractionDigits:2}));
 const pctSigned = x => x == null ? "—" : (x >= 0 ? "+" : "") + (x*100).toFixed(1) + "%";
 const tickerCell = r => `<span class="mono" style="font-weight:700">${esc(r.ticker)}</span>${r.name ? `<span class="muted" style="margin-left:6px">${esc(r.name)}</span>` : ""}`;
-const priceCell = r => r.price == null ? '<span class="muted">—</span>' : esc(fmtNum(r.price));
+const priceCell = r => r.price_eur == null ? '<span class="muted">—</span>' : '€' + esc(fmtNum(r.price_eur));
 const trendOf = field => r => r[field] == null ? '<span class="muted">—</span>' : `<span class="iv-delta ${r[field] >= 0 ? "up" : "down"}">${Math.abs(r[field]*100).toFixed(1)}%</span>`;
 const trendCell = trendOf("ret_6mo");
 const SIG_LABEL = { pe:"P/E", ev_ebitda:"EV/EBITDA", ps:"P/S", revenue_growth:"Rev growth", fcf:"Free cash flow",
@@ -114,8 +114,8 @@ function fmtSig(s) {
   return `${lbl} ${s.value}`;
 }
 const LEGEND = {
-  portfolio: "Call — Buy/Add: consider buying · Trim/Sell: consider reducing or exiting · Hold: no change. Conf: how much data backed the view. 6-/12-/24-mo: price trend over that window. Since buy: return vs your average cost.",
-  opportunities: "Score 0–100: fit to your rules (65+ = buy bar). Signals — P/E, EV/EBITDA, P/S: valuation (lower = cheaper); Rev growth, margins, ROE: quality. 6-/12-/24-mo: price trend over each window.",
+  portfolio: "Prices in € (converted from each stock's native currency, last market close; refreshed each weekday ~13:30 CET). Call — Buy/Add: consider buying · Trim/Sell: consider reducing or exiting · Hold: no change. Conf: how much data backed the view. 6-/12-/24-mo: price trend over that window. Since buy: return vs your average cost.",
+  opportunities: "Prices in € (last market close; refreshed each weekday ~13:30 CET). Score 0–100: fit to your rules (65+ = buy bar). Signals — P/E, EV/EBITDA, P/S: valuation (lower = cheaper); Rev growth, margins, ROE: quality. 6-/12-/24-mo: price trend over each window.",
   forecasts: "Return: the call's price move since it was made. Bench: the benchmark's move. Alpha: Return − Bench (how much better/worse than the market). Hit = right, Miss = wrong.",
   shortseller: "Verdict — clean: no red flags found · watch: caution · red-flag: serious concern. Evidence-based; runs weekly.",
   speculative: "HIGH RISK: can lose the whole position. Conviction is low/medium only. Max %: suggested cap of your portfolio. Each idea carries a concrete, sourced catalyst. 52-wk: change over the last year.",
