@@ -232,6 +232,11 @@ function dataTable(tab, { title, rows, columns, filters = [], defaultSort = null
 /* ---------- tabs ---------- */
 async function renderPortfolio() {
   const rows = await load("portfolio", async () => {
+    const runId = await latestRunId();
+    if (runId) {
+      const { data, error } = await sb.from("recommendations").select("*").eq("kind", "holding").eq("run_id", runId);
+      if (error) throw error; return data || [];
+    }
     const { data, error } = await sb.from("recommendations").select("*").eq("kind", "holding").order("date", { ascending: false });
     if (error) throw error; return dedupeByTicker(data || []);
   });
@@ -255,6 +260,11 @@ async function renderPortfolio() {
 
 async function renderOpportunities() {
   const rows = await load("opportunities", async () => {
+    const runId = await latestRunId();
+    if (runId) {
+      const { data, error } = await sb.from("scores").select("*").eq("run_id", runId);
+      if (error) throw error; return data || [];
+    }
     const { data, error } = await sb.from("scores").select("*").order("date", { ascending: false });
     if (error) throw error; return dedupeByTicker(data || []);
   });
@@ -356,6 +366,7 @@ async function renderSpeculative() {
 }
 
 function dedupeByTicker(rows) { const seen = new Set(); return rows.filter(r => !seen.has(r.ticker) && seen.add(r.ticker)); }
+async function latestRunId() { const { data } = await sb.from("runs").select("id").eq("status", "done").order("started_at", { ascending: false }).limit(1); return data && data.length ? data[0].id : null; }
 function pct(x) { return x == null ? "—" : (x*100).toFixed(1) + "%"; }
 
 sb.auth.onAuthStateChange((_e, session) => { session ? renderShell(session) : renderLogin(); });
