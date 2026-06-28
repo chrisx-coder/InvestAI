@@ -99,7 +99,8 @@ const fmtNum = x => (x == null || x === "") ? "—" : (Math.abs(x) >= 1e9 ? (x/1
 const pctSigned = x => x == null ? "—" : (x >= 0 ? "+" : "") + (x*100).toFixed(1) + "%";
 const tickerCell = r => `<span class="mono" style="font-weight:700">${esc(r.ticker)}</span>${r.name ? `<span class="muted" style="margin-left:6px">${esc(r.name)}</span>` : ""}`;
 const priceCell = r => r.price == null ? '<span class="muted">—</span>' : esc(fmtNum(r.price));
-const trendCell = r => r.ret_6mo == null ? '<span class="muted">—</span>' : `<span class="iv-delta ${r.ret_6mo >= 0 ? "up" : "down"}">${Math.abs(r.ret_6mo*100).toFixed(1)}%</span>`;
+const trendOf = field => r => r[field] == null ? '<span class="muted">—</span>' : `<span class="iv-delta ${r[field] >= 0 ? "up" : "down"}">${Math.abs(r[field]*100).toFixed(1)}%</span>`;
+const trendCell = trendOf("ret_6mo");
 const SIG_LABEL = { pe:"P/E", ev_ebitda:"EV/EBITDA", ps:"P/S", revenue_growth:"Rev growth", fcf:"Free cash flow",
   gross_margin:"Gross margin", operating_margin:"Op margin", roe:"ROE", net_debt_ebitda:"Net debt/EBITDA",
   current_ratio:"Current ratio", dma50:"vs 50-day", dma200:"vs 200-day", ret_6mo:"6-mo return", sector:"Sector", market_cap:"Market cap" };
@@ -113,8 +114,8 @@ function fmtSig(s) {
   return `${lbl} ${s.value}`;
 }
 const LEGEND = {
-  portfolio: "Call — Buy/Add: consider buying · Trim/Sell: consider reducing or exiting · Hold: no change. Conf: how much data backed the view. ▲/▼: 6-month price trend.",
-  opportunities: "Score 0–100: fit to your rules (65+ = buy bar). Signals — P/E, EV/EBITDA, P/S: valuation (lower = cheaper); Rev growth, margins, ROE: quality; 6-mo return: momentum. ▲/▼: 6-month trend.",
+  portfolio: "Call — Buy/Add: consider buying · Trim/Sell: consider reducing or exiting · Hold: no change. Conf: how much data backed the view. 6-/12-/24-mo: price trend over that window. Since buy: return vs your average cost.",
+  opportunities: "Score 0–100: fit to your rules (65+ = buy bar). Signals — P/E, EV/EBITDA, P/S: valuation (lower = cheaper); Rev growth, margins, ROE: quality. 6-/12-/24-mo: price trend over each window.",
   forecasts: "Return: the call's price move since it was made. Bench: the benchmark's move. Alpha: Return − Bench (how much better/worse than the market). Hit = right, Miss = wrong.",
   shortseller: "Verdict — clean: no red flags found · watch: caution · red-flag: serious concern. Evidence-based; runs weekly.",
   speculative: "HIGH RISK: can lose the whole position. Conviction is low/medium only. Max %: suggested cap of your portfolio. Each idea carries a concrete, sourced catalyst. 52-wk: change over the last year.",
@@ -241,6 +242,9 @@ async function renderPortfolio() {
       { k: "call", label: "Call", sortable: true, render: r => callPill(r.call) },
       { k: "price", label: "Price", sortable: true, get: r => r.price ?? -1, render: priceCell },
       { k: "ret_6mo", label: "6-mo", sortable: true, get: r => r.ret_6mo ?? -999, render: trendCell },
+      { k: "ret_12mo", label: "12-mo", sortable: true, get: r => r.ret_12mo ?? -999, render: trendOf("ret_12mo") },
+      { k: "ret_24mo", label: "24-mo", sortable: true, get: r => r.ret_24mo ?? -999, render: trendOf("ret_24mo") },
+      { k: "since_buy", label: "Since buy", sortable: true, get: r => r.since_buy ?? -999, render: trendOf("since_buy") },
       { k: "rationale", label: "Why", render: r => esc(r.rationale ?? "—") },
       { k: "confidence_pct", label: "Conf", sortable: true, get: r => r.confidence_pct ?? -1, render: r => (r.confidence_pct ?? "—") + "%" },
       { k: "date", label: "Date", cls: "muted", sortable: true },
@@ -261,6 +265,8 @@ async function renderOpportunities() {
       { k: "score", label: "Score", sortable: true, get: r => r.score ?? -1, render: r => `<b>${r.score ?? "n/a"}</b>` },
       { k: "price", label: "Price", sortable: true, get: r => r.price ?? -1, render: priceCell },
       { k: "ret_6mo", label: "6-mo", sortable: true, get: r => r.ret_6mo ?? -999, render: trendCell },
+      { k: "ret_12mo", label: "12-mo", sortable: true, get: r => r.ret_12mo ?? -999, render: trendOf("ret_12mo") },
+      { k: "ret_24mo", label: "24-mo", sortable: true, get: r => r.ret_24mo ?? -999, render: trendOf("ret_24mo") },
       { k: "date", label: "Date", cls: "muted", sortable: true },
       { k: "signals", label: "Top signals", cls: "muted", render: r => (r.signals || []).slice(0, 4).map(s => esc(fmtSig(s))).join(" · ") },
     ],
